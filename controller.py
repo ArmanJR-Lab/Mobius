@@ -62,15 +62,49 @@ import numpy as np
 
 class Controller:
     def __init__(self):
+        # PID gains
         self.p = 0.195
         self.i = 0.100
         self.d = -0.053
+
+        # Feedforward gain: maps target lataccel to steering command
+        self.ff_gain = 0.3
+
+        # Preview feedforward: anticipate target changes
+        self.preview_gain = 0.15
+        self.preview_horizon = 5  # steps ahead to look
+
+        # Integrator anti-windup
+        self.integral_limit = 5.0
+
+        # State
         self.error_integral = 0
         self.prev_error = 0
 
     def update(self, target_lataccel, current_lataccel, state, future_plan):
         error = target_lataccel - current_lataccel
-        self.error_integral += error
+
+        # Integrator with anti-windup
+        self.error_integral = np.clip(
+            self.error_integral + error,
+            -self.integral_limit,
+            self.integral_limit,
+        )
+
         error_diff = error - self.prev_error
         self.prev_error = error
-        return self.p * error + self.i * self.error_integral + self.d * error_diff
+
+        # PID output
+        pid = self.p * error + self.i * self.error_integral + self.d * error_diff
+
+        # Feedforward from target
+        ff = self.ff_gain * target_lataccel
+
+        # Preview feedforward: anticipate where the target is heading
+        preview_ff = 0.0
+        if future_plan and future_plan.lataccel and len(future_plan.lataccel) >= self.preview_horizon:
+            future_target = future_plan.lataccel[self.preview_horizon - 1]
+            target_rate = (future_target - target_lataccel) / (self.preview_horizon * 0.1)
+            preview_ff = self.preview_gain * target_rate
+
+        return pid + ff + preview_ff
