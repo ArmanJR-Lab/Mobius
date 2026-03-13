@@ -100,11 +100,14 @@ class Controller:
         # Feedforward from target
         ff = self.ff_gain * target_lataccel
 
-        # Preview feedforward: anticipate where the target is heading
+        # Preview feedforward: weighted average of near-future target changes
         preview_ff = 0.0
-        if future_plan and future_plan.lataccel and len(future_plan.lataccel) >= self.preview_horizon:
-            future_target = future_plan.lataccel[self.preview_horizon - 1]
-            target_rate = (future_target - target_lataccel) / (self.preview_horizon * 0.1)
+        if future_plan and future_plan.lataccel:
+            n = min(len(future_plan.lataccel), 10)
+            weights = np.exp(-0.3 * np.arange(n))  # exponential decay
+            future_targets = np.array(future_plan.lataccel[:n])
+            weighted_future = np.sum(weights * future_targets) / np.sum(weights)
+            target_rate = (weighted_future - target_lataccel) / 0.5
             preview_ff = self.preview_gain * target_rate
 
         return pid + ff + preview_ff
