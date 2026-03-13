@@ -1,0 +1,13 @@
+[project]
+name = "mobius"
+version = "0.1.0"
+description = "Autonomous controller optimization"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "onnxruntime",
+    "pandas",
+    "tqdm",
+    "matplotlib",
+    "seaborn",
+]
